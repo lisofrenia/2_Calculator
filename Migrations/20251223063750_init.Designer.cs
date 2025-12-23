@@ -11,8 +11,8 @@ using WebApplication2.Data;
 namespace WebApplication2.Migrations
 {
     [DbContext(typeof(CalculatorContext))]
-    [Migration("20251222130841_m_init3")]
-    partial class m_init3
+    [Migration("20251223063750_init")]
+    partial class init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

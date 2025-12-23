@@ -11,6 +11,7 @@ builder.Services.AddDbContext<CalculatorContext>(options =>
 {
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(10, 5, 15)));
 });
+builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
