@@ -33,20 +33,50 @@ namespace WebApplication2.Controllers
 		[ValidateAntiForgeryToken]
         public async Task<IActionResult> Calculate(double num1, double num2, Models.Operation operation)
         {
+            double result = 0;
+
+            switch (operation)
+            {
+                case Models.Operation.Add:
+                    result = num1 + num2;
+                    break;
+                case Models.Operation.Subtract:
+                    result = num1 - num2;
+                    break;
+                case Models.Operation.Multiply:
+                    result = num1 * num2;
+                    break;
+                case Models.Operation.Divide:
+                    if (num2 == 0)
+                    {
+                        ViewBag.Error = "Деление на ноль невозможно!";
+                        return View("Index");
+                    }
+                    result = num1 / num2;
+                    break;
+            }
+            ViewBag.Num1 = num1;
+            ViewBag.Num2 = num2;
+            ViewBag.operation = operation;
+            ViewBag.Result = result;
+
             // Подготовка объекта для расчета
             var dataInputVariant = new DataInputVarian
             {
                 Num1 = num1,
                 Num2 = num2,
                 operation = operation,
+                Result = result.ToString()
             };
+
 
             // Отправка данных в Kafka
             await SendDataToKafka(dataInputVariant);
 
             // Перенаправление на страницу Index
-            await Task.Delay(5000);
-            return RedirectToAction(nameof(Index));
+            // await Task.Delay(5000);
+            return View("Index");
+            // return RedirectToAction(nameof(Index));
         }
         public IActionResult Callback([FromBody] DataInputVarian inputData)
         {
