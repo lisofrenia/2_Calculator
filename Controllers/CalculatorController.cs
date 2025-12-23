@@ -1,8 +1,12 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using WebApplication2.Data;
 using WebApplication2.Models;
+using WebApplication2.Services;
+using Confluent.Kafka;
+using System.Text.Json;
 
 namespace WebApplication2.Controllers
 {
@@ -11,10 +15,12 @@ namespace WebApplication2.Controllers
 	public class CalculatorController : Controller
     {
         private CalculatorContext _context;
+		private readonly KafkaProducerService<Null, string> _producer;
 
-        public CalculatorController(CalculatorContext context)
+		public CalculatorController(CalculatorContext context, KafkaProducerService<Null, string> producer)
         {
             _context = context;
+			_producer = producer;
         }
 
         [HttpGet]
@@ -25,63 +31,40 @@ namespace WebApplication2.Controllers
 
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public IActionResult Calculate(double num1, double num2, Operation operation)
-		{
-			double result = 0;
-
-			switch (operation)
-			{
-				case Operation.Add:
-					result = num1 + num2;
-					break;
-				case Operation.Subtract:
-					result = num1 - num2;
-					break;
-				case Operation.Multiply:
-					result = num1 * num2;
-					break;
-				case Operation.Divide:
-					if (num2 == 0)
-					{
-						ViewBag.Error = "Деление на ноль невозможно!";
-						return View("Index");
-					}
-					result = num1 / num2;
-					break;
-			}
-			ViewBag.Result = result;
-            ViewBag.Num1 = num1;
-            ViewBag.Num2 = num2;
-            ViewBag.Operation = operation;
-
-            DataInputVarian dataInputVarian = new();
-			dataInputVarian.Num1 = num1.ToString();
-			dataInputVarian.Num2 = num2.ToString();
-            dataInputVarian.Operation = operation.ToString();
-            dataInputVarian.Result = result.ToString();
-
-			_context.DataInputVarians.Add(dataInputVarian);
-            // _context.SaveChanges();
-
-            try
+        public async Task<IActionResult> Calculate(double num1, double num2, Models.Operation operation)
+        {
+            // Подготовка объекта для расчета
+            var dataInputVariant = new DataInputVarian
             {
-                int saved = _context.SaveChanges();
-                Console.WriteLine($"=== DEBUG: Сохранено записей: {saved} ===");
+                Num1 = num1,
+                Num2 = num2,
+                operation = operation,
+            };
 
-                if (saved > 0)
-                {
-                    Console.WriteLine($"ID новой записи: {dataInputVarian.ID_DataInputVarian}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"=== DEBUG: ОШИБКА: {ex.Message} ===");
-                Console.WriteLine($"StackTrace: {ex.StackTrace}");
-                ViewBag.Error = "Ошибка сохранения: " + ex.Message;
-            }
+            // Отправка данных в Kafka
+            await SendDataToKafka(dataInputVariant);
 
-            return View("Index");
-		}
-	}
+            // Перенаправление на страницу Index
+            await Task.Delay(5000);
+            return RedirectToAction(nameof(Index));
+        }
+        public IActionResult Callback([FromBody] DataInputVarian inputData)
+        {
+            // Сохранение данных и результата в базе данных
+            SaveDataAndResult(inputData);
+            return Ok();
+        }
+        private DataInputVarian SaveDataAndResult(DataInputVarian inputData)
+        {
+            _context.DataInputVarians.Add(inputData);
+            _context.SaveChanges();
+            return inputData;
+        }
+        private async Task SendDataToKafka(DataInputVarian dataInputVariant)
+        {
+            var json = JsonSerializer.Serialize(dataInputVariant);
+            await _producer.ProduceAsync("2_Calculator", new Message<Null, string> { Value = json });
+        }
+    }
 
 }

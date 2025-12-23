@@ -1,5 +1,8 @@
+using Confluent.Kafka;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using WebApplication2.Data;
+using WebApplication2.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +15,10 @@ builder.Services.AddDbContext<CalculatorContext>(options =>
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(10, 5, 15)));
 });
 builder.Services.AddRazorPages();
-
+builder.Services.AddHttpClient();
+builder.Services.AddHostedService<KafkaConsumerService>();
+builder.Services.AddSingleton<KafkaProducerHandler>();
+builder.Services.AddSingleton<KafkaProducerService<Null, string>>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
